@@ -1,0 +1,68 @@
+# To check more available options see:
+# https://matplotlib.org/stable/users/explain/customizing.html
+
+# BOXPLOT
+boxplot.notch : True
+boxplot.meanline : True
+boxplot.flierprops.color:           573280
+boxplot.flierprops.markeredgecolor: 573280
+boxplot.boxprops.color:             573280
+boxplot.whiskerprops.color:         573280
+boxplot.capprops.color:             573280
+boxplot.medianprops.color:          573280
+boxplot.meanprops.color:            573280
+
+# FONT
+# font.family : serif
+
+# TEXT
+text.color : dimgrey
+
+# AXES
+axes.edgecolor : ffffff
+axes.labelcolor : dimgrey
+axes.linewidth : 1
+axes.axisbelow : True
+axes.formatter.use_mathtext : True
+
+# GRID
+axes.grid : True
+grid.alpha : 0.4
+grid.linestyle : -
+grid.linewidth : 0.5
+
+# LINES
+# Color palette: deep violet primary, with complementary burnt orange, cerulean, vermilion,
+# emerald, orchid, saffron, periwinkle, olive, rose, sky blue, dusty mauve, ochre, teal, lavender
+axes.prop_cycle : cycler('color', ['573280', 'E5821C', '2D8FAB', 'BD3A3A', '3D9B6B', 'C47EC8', 'D4A520', '7B73C8', '85A85A', 'CC6680', '5A9EBA', '8C7B8C', 'A08C2A', '4DB8B8', 'B8A0D4'])
+lines.linewidth : 2
+lines.markeredgewidth : 0.0
+lines.solid_capstyle : round
+
+# SCATTER PLOT
+scatter.marker : .
+scatter.edgecolors : none
+
+# TICKS
+xtick.bottom : False
+ytick.left : False
+xtick.color : dimgrey
+ytick.color : dimgrey
+xtick.major.size : 0.5
+ytick.major.size : 0.5
+xtick.labelcolor : dimgrey
+ytick.labelcolor : dimgrey
+
+# IMAGE
+image.cmap : viridis
+
+# LEGEND
+legend.framealpha : 1
+legend.edgecolor : dimgrey
+
+# FIGURE OUTPUT
+figure.figsize : 10, 4
+figure.dpi : 150
+figure.constrained_layout.use : True
+savefig.dpi : 300
+savefig.bbox : tight

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(mkdir -p /home/florian/Documents/GitHub/Scientific-Repository-Template/style)",
+      "Bash(cp /tmp/border.geojson /home/florian/Documents/GitHub/Scientific-Repository-Template/data/border.geojson)",
+      "Bash(rm -f .github/workflows/docs.yml mkdocs.yml mkgendocs.yml automate_mkdocs.py environment.yml setup.py requirements.txt)",
+      "Bash(mkdir -p notebooks)",
+      "Bash(cp scripts/readme.txt notebooks/readme.txt)",
+      "Bash(rm -rf scripts)"
+    ]
+  }
+}
