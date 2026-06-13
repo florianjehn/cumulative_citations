@@ -317,6 +317,7 @@ def plot_cumulative(
     col_index = {col: i for i, col in enumerate(df.columns)}
     x_right = max(paper_ages.values()) if paper_ages else 0
 
+    # Draw each paper's line and mark its true endpoint with a colored dot.
     for col in df.columns:
         age = paper_ages[col]
         col_color = colors[col_index[col] % len(colors)]
@@ -326,17 +327,18 @@ def plot_cumulative(
             linewidth=1.5,
             color=col_color,
         )
-        if age < x_right:
-            y_end = float(df[col].iloc[age])
-            ax.plot(
-                [age, x_right],
-                [y_end, y_end],
-                color=col_color,
-                linewidth=0.6,
-                linestyle="dotted",
-                alpha=0.5,
-            )
+        ax.plot(
+            age,
+            float(df[col].iloc[age]),
+            marker="o",
+            markersize=3,
+            color=col_color,
+            zorder=3,
+        )
 
+    # Place labels in a right-hand column, nudging them apart vertically, and
+    # connect each one back to its line's true endpoint with a colored leader so
+    # the association stays unambiguous even where lines and labels are crowded.
     y_min = float(df.values.min())
     y_max = float(df.values.max())
     y_range = y_max - y_min
@@ -347,11 +349,22 @@ def plot_cumulative(
     placed: list[float] = []
     for col in sorted_cols:
         age = paper_ages[col]
+        col_color = colors[col_index[col] % len(colors)]
         y_end = float(df[col].iloc[age])
         y_pos = y_end
         if placed and y_pos < placed[-1] + min_gap:
             y_pos = placed[-1] + min_gap
         placed.append(y_pos)
+
+        # Leader from the true endpoint to the (possibly nudged) label anchor.
+        ax.plot(
+            [age, x_right],
+            [y_end, y_pos],
+            color=col_color,
+            linewidth=0.6,
+            alpha=0.5,
+            zorder=2,
+        )
 
         ax.annotate(
             display_labels[col],
@@ -361,7 +374,7 @@ def plot_cumulative(
             va="center",
             ha="left",
             fontsize=6,
-            color=colors[col_index[col] % len(colors)],
+            color=col_color,
             annotation_clip=False,
         )
 
