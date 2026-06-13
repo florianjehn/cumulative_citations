@@ -2,6 +2,7 @@ import pytest
 
 from src.cumulative_citations import (
     build_cumulative_dataframe,
+    filter_first_author,
     parse_author_id,
     short_label,
 )
@@ -242,3 +243,41 @@ def test_build_missing_counts_by_year_field():
     col = df.columns[0]
     assert df[col].iloc[paper_ages[col]] == pytest.approx(10.0)
     assert len(prewindow_labels) == 1
+
+
+# ---------------------------------------------------------------------------
+# filter_first_author
+# ---------------------------------------------------------------------------
+
+
+def _authored_work(title, positions):
+    """Builds a work with authorships from a list of (author_id, position)."""
+    return {
+        "display_name": title,
+        "authorships": [
+            {
+                "author_position": pos,
+                "author": {"id": f"https://openalex.org/{aid}"},
+            }
+            for aid, pos in positions
+        ],
+    }
+
+
+def test_filter_first_author_keeps_first():
+    works = [
+        _authored_work("A", [("A111", "first"), ("A222", "middle")]),
+        _authored_work("B", [("A222", "first"), ("A111", "last")]),
+    ]
+    kept = filter_first_author(works, "A111")
+    assert [w["display_name"] for w in kept] == ["A"]
+
+
+def test_filter_first_author_excludes_non_first():
+    works = [_authored_work("A", [("A222", "first"), ("A111", "middle")])]
+    assert filter_first_author(works, "A111") == []
+
+
+def test_filter_first_author_empty_authorships():
+    works = [{"display_name": "A", "authorships": []}]
+    assert filter_first_author(works, "A111") == []

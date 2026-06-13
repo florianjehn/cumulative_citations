@@ -171,6 +171,30 @@ def fetch_works(author_id: str, session: requests.Session, params: dict) -> list
     return works
 
 
+def filter_first_author(works: list[dict], author_id: str) -> list[dict]:
+    """
+    Keeps only works where the given author is the first author.
+
+    Arguments:
+        works (list[dict]): OpenAlex work records, each with an 'authorships' list
+        author_id (str): bare OpenAlex author ID to match, e.g. 'A5076268002'
+
+    Returns:
+        list[dict]: works whose first authorship belongs to author_id, matched by
+            the authorship's 'author_position' == 'first' and the author ID suffix
+    """
+    first_author_works: list[dict] = []
+    for work in works:
+        for authorship in work.get("authorships") or []:
+            if authorship.get("author_position") != "first":
+                continue
+            full_id = (authorship.get("author") or {}).get("id") or ""
+            if full_id.rsplit("/", 1)[-1] == author_id:
+                first_author_works.append(work)
+            break
+    return first_author_works
+
+
 def short_label(work: dict) -> str:
     """
     Generates a short display label: '{surname} {year} — {truncated_title}'.
@@ -458,6 +482,11 @@ def main() -> None:
         metavar="EMAIL",
         help="Your email for the OpenAlex polite pool (strongly recommended)",
     )
+    parser.add_argument(
+        "--first-author-only",
+        action="store_true",
+        help="Only include papers where this author is the first author",
+    )
     args = parser.parse_args()
 
     if not args.email:
@@ -483,6 +512,13 @@ def main() -> None:
     if not works:
         print(f"No works found for author {author_id}.")
         sys.exit(0)
+
+    if args.first_author_only:
+        works = filter_first_author(works, author_id)
+        print(f"Keeping first-author papers only: {len(works)} remain.")
+        if not works:
+            print(f"No first-author works found for author {author_id}.")
+            sys.exit(0)
 
     top_n = args.top
     if len(works) < top_n:
