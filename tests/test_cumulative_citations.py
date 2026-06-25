@@ -3,6 +3,7 @@ import pytest
 from src.cumulative_citations import (
     build_cumulative_dataframe,
     filter_first_author,
+    merge_duplicate_titles,
     parse_author_id,
     short_label,
 )
@@ -243,6 +244,91 @@ def test_build_missing_counts_by_year_field():
     col = df.columns[0]
     assert df[col].iloc[paper_ages[col]] == pytest.approx(10.0)
     assert len(prewindow_labels) == 1
+
+
+# ---------------------------------------------------------------------------
+# merge_duplicate_titles
+# ---------------------------------------------------------------------------
+
+
+def _versioned_work(work_id, title, year, cited, counts):
+    return {
+        "id": work_id,
+        "display_name": title,
+        "publication_year": year,
+        "cited_by_count": cited,
+        "counts_by_year": [{"year": y, "cited_by_count": c} for y, c in counts.items()],
+        "authorships": [{"author": {"display_name": "Same Author"}}],
+        "doi": None,
+    }
+
+
+def test_merge_combines_same_title_citations():
+    works = [
+        _versioned_work("W_pre", "Shared Title", 2019, 10, {2019: 4, 2020: 6}),
+        _versioned_work("W_pub", "Shared Title", 2020, 30, {2020: 12, 2021: 18}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert len(merged) == 1
+    assert merged[0]["cited_by_count"] == 40
+
+
+def test_merge_sums_counts_by_year_per_year():
+    works = [
+        _versioned_work("W_pre", "Shared Title", 2019, 10, {2019: 4, 2020: 6}),
+        _versioned_work("W_pub", "Shared Title", 2020, 30, {2020: 12, 2021: 18}),
+    ]
+    merged = merge_duplicate_titles(works)
+    by_year = {e["year"]: e["cited_by_count"] for e in merged[0]["counts_by_year"]}
+    assert by_year == {2019: 4, 2020: 18, 2021: 18}
+
+
+def test_merge_keeps_earliest_publication_year():
+    works = [
+        _versioned_work("W_pre", "Shared Title", 2019, 10, {}),
+        _versioned_work("W_pub", "Shared Title", 2020, 30, {}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert merged[0]["publication_year"] == 2019
+
+
+def test_merge_is_title_case_and_whitespace_insensitive():
+    works = [
+        _versioned_work("W1", "Shared  Title", 2019, 10, {}),
+        _versioned_work("W2", "shared title", 2020, 30, {}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert len(merged) == 1
+    assert merged[0]["cited_by_count"] == 40
+
+
+def test_merge_leaves_distinct_titles_untouched():
+    works = [
+        _versioned_work("W1", "First", 2019, 10, {}),
+        _versioned_work("W2", "Second", 2020, 30, {}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert len(merged) == 2
+    assert [w["cited_by_count"] for w in merged] == [10, 30]
+
+
+def test_merge_preserves_first_occurrence_order():
+    works = [
+        _versioned_work("W1", "Bravo", 2019, 5, {}),
+        _versioned_work("W2", "Alpha", 2019, 10, {}),
+        _versioned_work("W3", "Bravo", 2020, 7, {}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert [w["display_name"] for w in merged] == ["Bravo", "Alpha"]
+
+
+def test_merge_untitled_works_not_grouped():
+    works = [
+        _versioned_work("W1", "", 2019, 5, {}),
+        _versioned_work("W2", None, 2020, 7, {}),
+    ]
+    merged = merge_duplicate_titles(works)
+    assert len(merged) == 2
 
 
 # ---------------------------------------------------------------------------

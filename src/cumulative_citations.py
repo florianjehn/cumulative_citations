@@ -195,6 +195,83 @@ def filter_first_author(works: list[dict], author_id: str) -> list[dict]:
     return first_author_works
 
 
+def _title_key(work: dict) -> str:
+    """
+    Normalises a work's title for matching duplicates across versions.
+
+    Arguments:
+        work (dict): OpenAlex work record with a 'display_name' field
+
+    Returns:
+        str: the title lowercased with surrounding and repeated whitespace
+            collapsed; empty string if the work has no usable title
+    """
+    title = (work.get("display_name") or "").strip()
+    return re.sub(r"\s+", " ", title).lower()
+
+
+def merge_duplicate_titles(works: list[dict]) -> list[dict]:
+    """
+    Merges works that share the same title into one combined record.
+
+    A preprint and its published version usually appear as separate OpenAlex
+    works carrying the same title. This groups works by their normalised title
+    (see _title_key) and, for each group of two or more, sums cited_by_count and
+    counts_by_year so the pair counts as a single paper. The earliest
+    publication_year is kept (citations begin accruing from the preprint) and
+    the remaining metadata is taken from the most-cited member of the group.
+    Insertion order of the first occurrence of each title is preserved.
+
+    Arguments:
+        works (list[dict]): OpenAlex work records, each with 'display_name',
+            'publication_year', 'cited_by_count', and 'counts_by_year' fields
+
+    Returns:
+        list[dict]: works with same-title duplicates merged into single records;
+            works without a usable title are passed through unchanged
+    """
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for index, work in enumerate(works):
+        key = _title_key(work) or f"__notitle__{index}"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(work)
+
+    merged: list[dict] = []
+    for key in order:
+        group = groups[key]
+        if len(group) == 1:
+            merged.append(group[0])
+            continue
+
+        representative = max(group, key=lambda w: w.get("cited_by_count") or 0)
+        combined = dict(representative)
+        combined["cited_by_count"] = sum(w.get("cited_by_count") or 0 for w in group)
+
+        pub_years = [
+            w.get("publication_year") for w in group if w.get("publication_year")
+        ]
+        if pub_years:
+            combined["publication_year"] = min(pub_years)
+
+        yearly_totals: dict[int, int] = {}
+        for w in group:
+            for entry in w.get("counts_by_year") or []:
+                year = int(entry["year"])
+                yearly_totals[year] = yearly_totals.get(year, 0) + int(
+                    entry["cited_by_count"]
+                )
+        combined["counts_by_year"] = [
+            {"year": year, "cited_by_count": count}
+            for year, count in sorted(yearly_totals.items(), reverse=True)
+        ]
+        merged.append(combined)
+
+    return merged
+
+
 def short_label(work: dict) -> str:
     """
     Generates a short display label: '{surname} {year} — {truncated_title}'.
@@ -468,9 +545,9 @@ def main() -> None:
     parser.add_argument(
         "--top",
         type=int,
-        default=10,
+        default=5,
         metavar="N",
-        help="Number of top papers to plot (default: 10)",
+        help="Number of top papers to plot (default: 5)",
     )
     parser.add_argument(
         "--output",
@@ -484,8 +561,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--first-author-only",
-        action="store_true",
-        help="Only include papers where this author is the first author",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Only include papers where this author is the first author "
+            "(default: on; use --no-first-author-only to include all)"
+        ),
     )
     args = parser.parse_args()
 
@@ -512,6 +593,15 @@ def main() -> None:
     if not works:
         print(f"No works found for author {author_id}.")
         sys.exit(0)
+
+    merged_works = merge_duplicate_titles(works)
+    n_merged = len(works) - len(merged_works)
+    if n_merged:
+        print(
+            f"Merged {n_merged} same-title duplicate(s) "
+            "(e.g. preprint + published version)."
+        )
+    works = merged_works
 
     if args.first_author_only:
         works = filter_first_author(works, author_id)
